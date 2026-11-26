@@ -38,6 +38,15 @@ if (bytes.length < 24 || bytes.readUInt32BE(16) !== 1024 || bytes.readUInt32BE(2
   console.error('entry.png is not 1024x1024');
   process.exit(1);
 }
+// And verify the file is whole, not truncated: a PNG must end with the
+// IEND chunk — 4 bytes of zero length, the ASCII letters IEND, and the
+// fixed CRC 0xAE426082. A file cut short would still pass the magic and
+// IHDR checks above and only fail at the gate.
+const IEND = Buffer.from([0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82]);
+if (bytes.length < 12 || !bytes.subarray(bytes.length - 12).equals(IEND)) {
+  console.error('entry.png is truncated: missing IEND chunk');
+  process.exit(1);
+}
 if (!existsSync(destination)) mkdirSync(destination, { recursive: true });
 copyFileSync(image, join(destination, 'entry.png'));
 const written = statSync(join(destination, 'entry.png'));
